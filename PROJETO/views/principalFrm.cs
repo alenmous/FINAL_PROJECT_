@@ -81,7 +81,7 @@ namespace PROJETO.views
             menuActions["Marcas"] = stripAlmMarca_Click;
             menuActions["Categorias"] = stripAlmCategoria_Click;
             menuActions["Produtos"] = stripAlmProduto_Click;
-           // menuActions["Produto -> Fornecedor"] = stripAlmVinculo_Click;
+            // menuActions["Produto -> Fornecedor"] = stripAlmVinculo_Click;
             menuActions["Compras"] = stripAlmCompra_Click;
             menuActions["Contas a Pagar"] = stripFinContaPg_Click;
             menuActions["Contas a Receber"] = stripFinContaReceber_Click;

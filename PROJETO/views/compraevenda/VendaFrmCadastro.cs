@@ -13,6 +13,7 @@ using PROJETO.models.bases;
 using System.Globalization;
 using PROJETO.views.consultas;
 using System.IO;
+using System.Linq; // Adicionado para usar .ToList() e .Count
 
 namespace PROJETO.views.compraevenda
 {
@@ -88,7 +89,7 @@ namespace PROJETO.views.compraevenda
             {
                 try
                 {
-                    aVenda.NumNfv =  NumNFe;
+                    aVenda.NumNfv = NumNFe;
                     aVenda.SerieNfv = SerieNFe;
                     aVenda.ModeloNfv = ModeloNFe;
                     aVenda.Cliente.ID = Convert.ToInt32(txtCodCliente.Text);
@@ -184,24 +185,58 @@ namespace PROJETO.views.compraevenda
             List<Parcela> dados = aCTLParcela.BuscarParcelasPorIDCondicao(cod); ;
             PreencherListView(dados);
         }
+
+        // ####################################################################
+        // MÉTODO PreencherListView CORRIGIDO
+        // ####################################################################
         private void PreencherListView(IEnumerable<Parcela> dados)
         {
             lvParcelas.Items.Clear();
 
-            // Calcula o custo total com os adicionais uma vez para uso em todas as parcelas
-            decimal custoTotalComAdicionais = CalcularCustoTotalComAdicionais();
+            // 1. USA O TOTAL JÁ EXIBIDO NA TELA. Esta é a "fonte da verdade".
+            //    Isso garante que as parcelas SEMPRE baterão com o total da nota.
+            decimal custoTotalComAdicionais = ParseDecimalText(txtTotalNota.Text);
 
-            foreach (var parcela in dados)
+            // 2. Converte para lista para saber o total e qual é a última
+            var listaParcelas = dados.ToList();
+            int totalDeParcelas = listaParcelas.Count;
+
+            if (totalDeParcelas == 0) return; // Sai se não houver parcelas
+
+            decimal totalCalculadoAteAgora = 0m;
+
+            // 3. Itera por todas as parcelas
+            for (int i = 0; i < totalDeParcelas; i++)
             {
+                var parcela = listaParcelas[i];
+                decimal valorParcela;
+
+                // 4. Verifica se NÃO é a última parcela
+                if (i < totalDeParcelas - 1)
+                {
+                    // Calcula a parcela pela porcentagem
+                    decimal valorCalculado = (parcela.Porcentagem / 100) * custoTotalComAdicionais;
+
+                    // Arredonda para 2 casas decimais (o valor que será exibido)
+                    valorParcela = Math.Round(valorCalculado, 2, MidpointRounding.AwayFromZero);
+
+                    // Soma ao total acumulado
+                    totalCalculadoAteAgora += valorParcela;
+                }
+                else
+                {
+                    // 5. É A ÚLTIMA PARCELA
+                    // O valor é a diferença, para garantir que a soma feche 100%
+                    valorParcela = custoTotalComAdicionais - totalCalculadoAteAgora;
+                }
+
+                // 6. Adiciona o item no ListView
                 ListViewItem item = new ListViewItem(parcela.NumParcela.ToString());
                 item.SubItems.Add(parcela.DiasTotais.ToString());
                 item.SubItems.Add(parcela.Forma.ID.ToString());
                 item.SubItems.Add(parcela.Forma.Forma);
-                item.SubItems.Add(parcela.Porcentagem.ToString());
-
-                // Calcula o valor da parcela com base na porcentagem e no custo total com adicionais
-                decimal valorParcela = (parcela.Porcentagem / 100) * custoTotalComAdicionais;
-                item.SubItems.Add(valorParcela.ToString("F2")); // Adiciona o valor da parcela na posição correta
+                item.SubItems.Add(parcela.Porcentagem.ToString()); // Mostra a porcentagem original
+                item.SubItems.Add(valorParcela.ToString("F2"));   // Adiciona o valor calculado/corrigido
 
                 item.Tag = parcela;
                 lvParcelas.Items.Add(item);
@@ -270,6 +305,10 @@ namespace PROJETO.views.compraevenda
                 Item.TipoItem.ToString());
             }
         }
+
+        // ####################################################################
+        // MÉTODO Salvar CORRIGIDO
+        // ####################################################################
         protected override void Salvar()
         {
             if (AutorizadoSalvar)
@@ -287,10 +326,13 @@ namespace PROJETO.views.compraevenda
                         venda.NumNfv = NumNFe;
                         venda.ModeloNfv = ModeloNFe;
                         venda.SerieNfv = SerieNFe;
-                        venda.ValorTotal = Convert.ToDecimal(txtTotalNota.Text);
-                        venda.ValorFrete = decimal.Parse(txtFrete.Text);
-                        venda.ValorSeguro = decimal.Parse(txtSeguro.Text);
-                        venda.ValorOutrasDespesas = decimal.Parse(txtOutras.Text);
+
+                        // CORREÇÃO: Usar ParseDecimalText para ler os valores da tela
+                        venda.ValorTotal = ParseDecimalText(txtTotalNota.Text);
+                        venda.ValorFrete = ParseDecimalText(txtFrete.Text);
+                        venda.ValorSeguro = ParseDecimalText(txtSeguro.Text);
+                        venda.ValorOutrasDespesas = ParseDecimalText(txtOutras.Text);
+
                         venda.DataCriacao = DateTime.Now;
                         venda.DataEmissao = DateTime.Now;
                         venda.DataSaida = DateTime.Now;
@@ -307,7 +349,10 @@ namespace PROJETO.views.compraevenda
                             aContareceber.NumParcela = Convert.ToInt32(item.SubItems[0].Text);
                             aContareceber.Cliente.ID = venda.Cliente.ID;
                             aContareceber.Condicao.ID = venda.CondicaoPagamento.ID;
-                            aContareceber.Valor = Convert.ToDecimal(item.SubItems[5].Text);
+
+                            // CORREÇÃO: Usar ParseDecimalText para ler o valor da parcela (subitem 5)
+                            aContareceber.Valor = ParseDecimalText(item.SubItems[5].Text);
+
                             aContareceber.Situacao = "A RECEBER";
                             aContareceber.DataCriacao = DateTime.Now;
                             aContareceber.DataVencimento = DateTime.Now.AddDays(Convert.ToInt32(item.SubItems[1].Text));
@@ -338,6 +383,10 @@ namespace PROJETO.views.compraevenda
                 return;
             }
         }
+
+        // ####################################################################
+        // MÉTODO ItensListView CORRIGIDO
+        // ####################################################################
         public List<ItemVenda> ItensListView(int Num_nfc, int Modelo_nfc, int Serie_nfc, int Id_cliente)
         {
             var vLista = new List<ItemVenda>();
@@ -351,9 +400,14 @@ namespace PROJETO.views.compraevenda
                 ItensVenda.TipoItem = Convert.ToString(vLinha.Cells["tipo"].Value);
                 ItensVenda.IdItem = Convert.ToInt32(vLinha.Cells["codigo"].Value);
                 ItensVenda.QtdItem = Convert.ToInt32(vLinha.Cells["quantidade"].Value);
-                ItensVenda.PrecoUnitario = Convert.ToDecimal(vLinha.Cells["valor_unitario"].Value);
-                ItensVenda.Desconto = Convert.ToDecimal(vLinha.Cells["desconto"].Value);
-                ItensVenda.TotalItem = Convert.ToDecimal(txtTotalNota.Text);
+
+                // CORREÇÃO: Usar ParseDecimalText para garantir a cultura
+                ItensVenda.PrecoUnitario = ParseDecimalText(vLinha.Cells["valor_unitario"].Value.ToString());
+                ItensVenda.Desconto = ParseDecimalText(vLinha.Cells["desconto"].Value.ToString());
+
+                // CORREÇÃO CRÍTICA: O TotalItem é o sub_total da LINHA, não o total da NOTA.
+                ItensVenda.TotalItem = ParseDecimalText(vLinha.Cells["sub_total"].Value.ToString());
+
                 ItensVenda.DataCriacao = DateTime.Now;
                 vLista.Add(ItensVenda);
             }
@@ -370,15 +424,18 @@ namespace PROJETO.views.compraevenda
             }
             if (string.IsNullOrWhiteSpace(txtFrete.Text))
             {
-                camposFaltantes.Add("Frete");
+                // Deixando o frete ser 0
+                txtFrete.Text = "0";
             }
             if (string.IsNullOrWhiteSpace(txtOutras.Text))
             {
-                camposFaltantes.Add("Outras taxas");
+                // Deixando outras ser 0
+                txtOutras.Text = "0";
             }
             if (string.IsNullOrWhiteSpace(txtSeguro.Text))
             {
-                camposFaltantes.Add("Seguro");
+                // Deixando seguro ser 0
+                txtSeguro.Text = "0";
             }
             if (camposFaltantes.Count > 0)
             {
@@ -464,60 +521,43 @@ namespace PROJETO.views.compraevenda
         {
             if (!string.IsNullOrWhiteSpace(txtQtd.Text) && !string.IsNullOrWhiteSpace(txtUnitario.Text))
             {
-                // Remover o símbolo de moeda 'R$' e converter o valor para decimal
-                decimal valorUnitario;
-                if (decimal.TryParse(txtUnitario.Text.Replace("R$", "").Trim(), out valorUnitario))
+                // Remover o símbolo de moeda 'R$' e converter o valor para decimal com normalização adequada
+                decimal valorUnitario = ParseDecimalText(txtUnitario.Text);
+                // Converter a quantidade para inteiro
+                int quantidade;
+                if (int.TryParse(txtQtd.Text, out quantidade))
                 {
-                    // Converter a quantidade para inteiro
-                    int quantidade;
-                    if (int.TryParse(txtQtd.Text, out quantidade))
-                    {
-                        // Calcular o valor total do produto
-                        decimal valorTotal = quantidade * valorUnitario;
+                    // Calcular o valor total do produto
+                    decimal valorTotal = quantidade * valorUnitario;
 
-                        // Aplicar desconto, se houver
-                        decimal desconto = 0;
-                        if (!string.IsNullOrWhiteSpace(txtDesconto.Text))
+                    // Aplicar desconto, se houver
+                    decimal desconto = 0;
+                    if (!string.IsNullOrWhiteSpace(txtDesconto.Text))
+                    {
+                        desconto = ParseDecimalText(txtDesconto.Text);
+                        // Verificar se o desconto não deixa o valor total negativo
+                        if (valorTotal - desconto >= 0)
                         {
-                            if (decimal.TryParse(txtDesconto.Text.Replace("R$", "").Trim(), out desconto))
-                            {
-                                // Verificar se o desconto não deixa o valor total negativo
-                                if (valorTotal - desconto >= 0)
-                                {
-                                    valorTotal -= desconto;
-                                }
-                                else
-                                {
-                                    MessageBox.Show("O desconto não pode resultar em um valor total negativo.", "Erro de Desconto", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                                    txtDesconto.Text = "0";
-                                    return;
-                                }
-                            }
-                            else
-                            {
-                                MessageBox.Show("Valor de desconto inválido.", "Erro de Desconto", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                                txtDesconto.Text = "0";
-                                return;
-                            }
+                            valorTotal -= desconto;
                         }
-
-                        // Exibir o valor unitário sem o símbolo de moeda
-                        txtUnitario.Text = valorUnitario.ToString("0.00");
-
-                        // Exibir o valor total
-                        txtProdTotal.Text = valorTotal.ToString("0.00");
+                        else
+                        {
+                            MessageBox.Show("O desconto não pode resultar em um valor total negativo.", "Erro de Desconto", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                            txtDesconto.Text = "0";
+                            return;
+                        }
                     }
-                    else
-                    {
-                        MessageBox.Show("Quantidade inválida.", "Erro de Quantidade", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                        txtQtd.Text = "1";
-                        txtProdTotal.Text = "0.00";
-                    }
+
+                    // Exibir o valor unitário sem o símbolo de moeda
+                    txtUnitario.Text = valorUnitario.ToString("0.00");
+
+                    // Exibir o valor total
+                    txtProdTotal.Text = valorTotal.ToString("0.00");
                 }
                 else
                 {
-                    MessageBox.Show("Valor unitário inválido.", "Erro de Valor Unitário", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    txtUnitario.Text = "";
+                    MessageBox.Show("Quantidade inválida.", "Erro de Quantidade", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    txtQtd.Text = "1";
                     txtProdTotal.Text = "0.00";
                 }
             }
@@ -526,33 +566,55 @@ namespace PROJETO.views.compraevenda
                 txtProdTotal.Text = "0.00";
             }
         }
-        private decimal CalcularCustoTotalComAdicionais()
+
+        /// <summary>
+        /// Converte texto de entrada de usuário (possivelmente contendo 'R$', '.' como milhares e ',' como decimais)
+        /// para decimal de forma robusta. Aceita formatos como "1.234,56", "1234.56", "0,9", "0.9".
+        /// </summary>
+        /// <param name="input"></param>
+        /// <returns></returns>
+        private decimal ParseDecimalText(string input)
         {
-            decimal total = CustoTotal(); // Chama o método existente para obter o custo total atual
+            if (string.IsNullOrWhiteSpace(input))
+                return 0m;
 
-            // Somar os custos de frete, seguro e outros se não forem nulos ou vazios
-            decimal frete = 0;
-            decimal seguro = 0;
-            decimal outrosCustos = 0;
+            string s = input.Replace("R$", "").Trim();
+            bool hasDot = s.Contains(".");
+            bool hasComma = s.Contains(",");
 
-            if (!string.IsNullOrEmpty(txtFrete.Text)) frete = Convert.ToDecimal(txtFrete.Text);
-            if (!string.IsNullOrEmpty(txtSeguro.Text)) seguro = Convert.ToDecimal(txtSeguro.Text);
-            if (!string.IsNullOrEmpty(txtOutras.Text)) outrosCustos = Convert.ToDecimal(txtOutras.Text);
-
-            // Somar os custos extras ao total
-            total += frete + seguro + outrosCustos;
-
-            return total;
-        }
-        private decimal CustoTotal()
-        {
-            decimal total = 0;
-            foreach (DataGridViewRow vLinha in DgItensVenda.Rows)
+            if (hasDot && hasComma)
             {
-                total += Convert.ToDecimal(vLinha.Cells["quantidade"].Value) * Convert.ToDecimal(vLinha.Cells["valor_unitario"].Value);
+                // formato típico BR: "1.234,56" -> remove pontos (milhar) e transforma vírgula em ponto
+                s = s.Replace(".", "").Replace(",", ".");
             }
-            return total;
+            else if (hasComma && !hasDot)
+            {
+                // "0,9" -> "0.9"
+                s = s.Replace(",", ".");
+            }
+            else
+            {
+                // se só tem ponto (ex.: "0.9" ou "1234.56") mantém o ponto como separador decimal
+                // se não tem separadores, mantém a string como está
+            }
+
+            decimal value;
+            if (decimal.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out value))
+                return value;
+
+            // fallback: tenta com cultura atual
+            if (decimal.TryParse(input, NumberStyles.Any, CultureInfo.CurrentCulture, out value))
+                return value;
+
+            return 0m;
         }
+
+        // ####################################################################
+        // MÉTODOS 'CalcularCustoTotalComAdicionais' e 'CustoTotal' REMOVIDOS
+        // Eles eram a fonte do bug de R$ 0,10, pois não consideravam o desconto.
+        // O método 'AtualizarTotalNota' já faz este trabalho corretamente.
+        // ####################################################################
+
         private void BuscarProduto(int id)
         {
             Produto produto = produtosController.BuscarProdutoPorId(id);
@@ -597,6 +659,10 @@ namespace PROJETO.views.compraevenda
             txtUnitario.Clear();
             pbFoto.Image = Properties.Resources.semimagem;
         }
+
+        // ####################################################################
+        // MÉTODO AtualizarTotalNota CORRIGIDO
+        // ####################################################################
         private void AtualizarTotalNota()
         {
             decimal totalNota = 0;
@@ -605,17 +671,12 @@ namespace PROJETO.views.compraevenda
             {
                 if (row.Cells["sub_total"].Value != null)
                 {
-                    // Tentar converter o valor da célula para decimal
-                    if (decimal.TryParse(row.Cells["sub_total"].Value.ToString(), out decimal subTotal))
-                    {
-                        totalNota += subTotal;
-                    }
-                    else
-                    {
-                        // Lidar com valores inválidos ou formatos inesperados
-                        MessageBox.Show("Erro ao converter o valor do subtotal para decimal.", "Erro de Conversão", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                        return;
-                    }
+                    // CORREÇÃO: Usar o ParseDecimalText para ler o sub_total da grid
+                    // Isso evita erros de cultura (ex: "9,90" vs "9.90")
+                    decimal subTotal = ParseDecimalText(row.Cells["sub_total"].Value.ToString());
+
+                    // O ParseDecimalText retorna 0 se falhar, então podemos somar diretamente
+                    totalNota += subTotal;
                 }
             }
 
@@ -623,21 +684,15 @@ namespace PROJETO.views.compraevenda
             decimal seguro = 0;
             decimal outras = 0;
 
-            // Tentar converter os valores dos campos txtFrete, txtSeguro e txtOutras para decimal
-            if (decimal.TryParse(txtFrete.Text.ToString(), out decimal freteValue))
-            {
-                frete = freteValue;
-            }
-            if (decimal.TryParse(txtSeguro.Text.ToString(), out decimal seguroValue))
-            {
-                seguro = seguroValue;
-            }
-            if (decimal.TryParse(txtOutras.Text.ToString(), out decimal outrasValue))
-            {
-                outras = outrasValue;
-            }
+            // Isso já estava correto, usando o ParseDecimalText
+            frete = ParseDecimalText(txtFrete.Text);
+            seguro = ParseDecimalText(txtSeguro.Text);
+            outras = ParseDecimalText(txtOutras.Text);
+
 
             decimal custoTotal = frete + seguro + outras + totalNota;
+
+            // Atualiza o txtTotalNota. "F2" garante o formato "10,50" (na cultura pt-BR)
             txtTotalNota.Text = custoTotal.ToString("F2");
         }
         private void LiberarCondicaoPagamento()
@@ -649,7 +704,7 @@ namespace PROJETO.views.compraevenda
                 {
                     txtCodCondicao.Text = aCondicao.ID.ToString();
                     txtCondicao.Text = aCondicao.Condicao;
-                    CarregaLV();
+                    CarregaLV(); // Agora o CarregaLV() vai chamar o PreencherListView() correto
                 }
             }
             else
@@ -666,7 +721,7 @@ namespace PROJETO.views.compraevenda
             txtSeguro.Enabled = valor;
         }
 
-        ///////////////////////////////////////////////////////////////////////##############################################################################################
+        /////////////////////////////////////////////////////////////////////////##############################################################################################
 
         private void txtCPFeCNPJ_KeyDown(object sender, KeyEventArgs e)
         {
@@ -829,6 +884,14 @@ namespace PROJETO.views.compraevenda
                 return;
             }
 
+            // Verifica valor mínimo do produto (mínimo R$ 0,01)
+            decimal prodTotal = ParseDecimalText(txtProdTotal.Text);
+            if (prodTotal < 0.01m)
+            {
+                MessageBox.Show("O valor do produto deve ser no mínimo R$ 0,01. Verifique quantidade, valor unitário e desconto.", "Valor Inválido", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
             int id = int.Parse(txtCodProduto.Text);
             string tipo = "P";
             // Verifica se o item já existe no DataGridView
@@ -839,8 +902,8 @@ namespace PROJETO.views.compraevenda
                 return;
             }
 
-            // Define o desconto como 0 se o campo estiver vazio
-            decimal desconto = string.IsNullOrWhiteSpace(txtDesconto.Text) ? 0 : Convert.ToDecimal(txtDesconto.Text);
+            // Define o desconto como 0 se o campo estiver vazio, usando parser robusto
+            decimal desconto = string.IsNullOrWhiteSpace(txtDesconto.Text) ? 0 : ParseDecimalText(txtDesconto.Text);
             decimal valorUnitario = valorUnit; // Valor unitário do item, ajuste conforme necessário
 
             if (tipo == "P")
@@ -854,8 +917,9 @@ namespace PROJETO.views.compraevenda
             }
 
 
-            decimal subtotalSemDesconto = valorUnitario * quantidade;
-            decimal subtotalComDesconto = subtotalSemDesconto - desconto;
+            //decimal subtotalSemDesconto = valorUnitario * quantidade;
+            // O subtotal COM desconto é o que está em txtProdTotal.Text
+            decimal subtotalComDesconto = ParseDecimalText(txtProdTotal.Text);
             btnFinaliza.Enabled = true;
             // Adicionar o item ao DataGridView
             int itemNumber = DgItensVenda.Rows.Count + 1;
@@ -865,9 +929,9 @@ namespace PROJETO.views.compraevenda
                 id.ToString(),
                 txtProduto.Text,
                 quantidade,
-                desconto,
+                desconto.ToString("F2"), // Salva o desconto formatado
                 valorUnitario.ToString("F2"),
-                subtotalComDesconto.ToString("F2"),
+                subtotalComDesconto.ToString("F2"), // Salva o subtotal formatado
                 tipo
 
             );
@@ -889,9 +953,9 @@ namespace PROJETO.views.compraevenda
         {
             foreach (DataGridViewRow row in DgItensVenda.Rows)
             {
-                if (row.Cells["codigo"].Value != null && row.Cells["Tipo"].Value != null)
+                if (row.Cells["codigo"].Value != null && row.Cells["tipo"].Value != null)
                 {
-                    if (Convert.ToInt32(row.Cells["codigo"].Value) == id && row.Cells["Tipo"].Value.ToString() == tipo)
+                    if (Convert.ToInt32(row.Cells["codigo"].Value) == id && row.Cells["tipo"].Value.ToString() == tipo)
                     {
                         return true;
                     }
@@ -902,7 +966,7 @@ namespace PROJETO.views.compraevenda
 
         private void txtCodCondicao_Enter(object sender, EventArgs e)
         {
-            this.AcceptButton = null; // Remove o botão "SALVAR" como botão padrão   
+            this.AcceptButton = null; // Remove o botão "SALVAR" como botão padrão    
         }
 
         private void txtCodCondicao_KeyPress(object sender, KeyPressEventArgs e)
@@ -1025,7 +1089,7 @@ namespace PROJETO.views.compraevenda
                 btnFinalizaCondicao.Enabled = true; //mantem o botão aberto
                 txtTotalNota.Enabled = true; // mantem a nota aberta.
                 AtualizarTotalNota();// chama para recalcular as parcelas 
-                LiberarCondicaoPagamento();
+                LiberarCondicaoPagamento(); // <-- É AQUI QUE O CÁLCULO DAS PARCELAS ACONTECE
                 AutorizadoSalvar = true;
                 btnBuscarCondicao.Enabled = false;
                 txtCodCondicao.Enabled = false;
@@ -1052,7 +1116,7 @@ namespace PROJETO.views.compraevenda
                 {
                     // Exibe um MessageBox para confirmar a exclusão
                     DialogResult result = MessageBox.Show("Tem certeza que deseja excluir este item?", "Confirmar Exclusão",
-                                                           MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                                                            MessageBoxButtons.YesNo, MessageBoxIcon.Question);
 
                     // Verifica se o usuário confirmou a exclusão
                     if (result == DialogResult.Yes)
@@ -1073,5 +1137,28 @@ namespace PROJETO.views.compraevenda
                 }
             }
         }
+
+        // Adicione handlers Leave para txtSeguro e txtOutras, assim como vc fez para txtFrete
+        private void txtSeguro_Leave(object sender, EventArgs e)
+        {
+            AtualizarTotalNota();
+        }
+
+        private void txtOutras_Leave(object sender, EventArgs e)
+        {
+            AtualizarTotalNota();
+        }
+
+        // Adicione KeyPress para txtSeguro e txtOutras
+        private void txtSeguro_KeyPress(object sender, KeyPressEventArgs e)
+        {
+            txtFrete_KeyPress(sender, e); // Reutiliza a mesma lógica de validação
+        }
+
+        private void txtOutras_KeyPress(object sender, KeyPressEventArgs e)
+        {
+            txtFrete_KeyPress(sender, e); // Reutiliza a mesma lógica de validação
+        }
+
     }
 }

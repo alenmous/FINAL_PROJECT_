@@ -12,6 +12,7 @@ using System.ComponentModel;
 using System.Data;
 using System.Drawing;
 using System.Globalization;
+using System.Linq;
 using System.Text;
 using System.Windows.Forms;
 
@@ -23,6 +24,7 @@ namespace PROJETO.views.compraevenda
         CondicaoPagamento aCondicao;
         ProdutosController produtoController;
         ComprasController compraController;
+        ContasPagarController contasPagarController;
         FornecedoresController fornecedoresController;
         bool permiteExclusao;
         private bool AutorizadoSalvar = false;
@@ -81,7 +83,11 @@ namespace PROJETO.views.compraevenda
             aCondicao = new CondicaoPagamento();
             condicaoPagamentoController = new CondicaoPagamentoController();
             oFornecedor = new Fornecedores();
-            permiteExclusao = true; // armazena a permissão do datagrid de produtos.
+
+            // NOVO: Instancie o ContasPagarController
+            contasPagarController = new ContasPagarController();
+
+            permiteExclusao = true;
             DataGrid();
         }
         protected override void LimparCampos()
@@ -399,9 +405,15 @@ namespace PROJETO.views.compraevenda
         }
 
 
+        // Em PROJETO.views.compraevenda.ComprasFrmCadastro
+
         public virtual void Popular(Compra aCompra)
         {
             permiteExclusao = false;
+
+            // Armazena a referência do objeto (importante para o CancelarCompra, etc.)
+            this.aCompra = aCompra;
+
             // Formata os valores de preço para exibição correta
             CultureInfo cultura = CultureInfo.InvariantCulture;
             txtNumNFC.Value = aCompra.NumNFC;
@@ -411,23 +423,35 @@ namespace PROJETO.views.compraevenda
             txtFornecedor.Text = aCompra.Fornecedor.NomeFantasia;
             dtChegada.Value = aCompra.DataChegada;
             dtEmissao.Value = aCompra.DataEmissao;
+
+            // Popula a Condição de Pagamento HISTÓRICA (Dados estáticos da compra)
             txtCodCondicao.Text = aCompra.Condicao.ID.ToString();
             txtCondicao.Text = aCompra.Condicao.Condicao;
+
             txtFrete.Text = aCompra.ValorFrete.ToString("0.##", cultura);
             txtSeguro.Text = aCompra.ValorSeguro.ToString("0.##", cultura);
             txtOutras.Text = aCompra.ValorOutrasDespesas.ToString("0.##", cultura);
             txtTotalNota.Text = aCompra.ValorTotal.ToString("0.##", cultura);
 
-            int codigo = Convert.ToInt32(txtNumNFC.Value);
-            int modelo = Convert.ToInt32(txtModeloNFC.Value);
-            int serie = Convert.ToInt32(txtSerieNFC.Value);
-            int fornecedor = Convert.ToInt32(txtCodigo2.Text);
+            // Variáveis de chave da nota
+            int numNFC = Convert.ToInt32(txtNumNFC.Value);
+            int modeloNFC = Convert.ToInt32(txtModeloNFC.Value);
+            int serieNFC = Convert.ToInt32(txtSerieNFC.Value);
+            int fornecedorID = Convert.ToInt32(txtCodigo2.Text);
 
+            // Carrega os Itens da Compra (no DataGridView)
             ItensCompraController itensCompraController = new ItensCompraController();
-            List<ItemCompra> Itemcompra = itensCompraController.BuscarItemCompraPorChave2(codigo, modelo, serie, fornecedor);
-
+            List<ItemCompra> Itemcompra = itensCompraController.BuscarItemCompraPorChave2(numNFC, modeloNFC, serieNFC, fornecedorID);
             PopularItens(Itemcompra);
-            CarregaLV(); // popula a condição de pagamento.
+
+            // --- NOVO PASSO: CARREGAR PARCELAS HISTÓRICAS (Contas a Pagar) ---
+            // Usamos o ContasPagarController para buscar todas as parcelas reais desta nota
+            List<ContasPagar> contasPagarHistoricas = contasPagarController.ListarContasPorNota(numNFC, modeloNFC, serieNFC, fornecedorID);
+
+            // Chamamos o novo método de preenchimento histórico
+            PreencherListViewHistorico(contasPagarHistoricas);
+
+            // O CarregaLV() original é usado apenas para a lógica de INCLUSÃO/CÁLCULO e não deve ser chamado aqui.
         }
         public void PopularItens(List<ItemCompra> lista)
         {
@@ -459,15 +483,153 @@ namespace PROJETO.views.compraevenda
                 }
             }
         }
-        private void CarregaLV()
-        {
-            int cod = Convert.ToInt32(txtCodCondicao.Text);
-            ParcelasController parcelaController = new ParcelasController();
-            List<Parcela> dados = parcelaController.BuscarParcelasPorIDCondicao(cod);
 
-            PreencherListView(dados);
-            PreencherListViewPagamentos(dados);
+        private void CarregaLV(Compra compraHistorica = null)
+        {
+            // Apenas se não estivermos carregando uma compra histórica OU se for forçado
+            if (compraHistorica == null)
+            {
+                if (!string.IsNullOrEmpty(txtCodCondicao.Text) && int.TryParse(txtCodCondicao.Text, out int cod) && cod > 0)
+                {
+                    ParcelasController parcelaController = new ParcelasController();
+                    List<Parcela> dados = parcelaController.BuscarParcelasPorIDCondicao(cod);
+
+                    // Estes métodos recalculam valores baseados na porcentagem e no total da nota
+                    PreencherListView(dados);
+                    PreencherListViewPagamentos(dados);
+                }
+            }
+            else
+            {
+                // Se a lógica de inclusão não for utilizada, limpa
+                lvParcelas.Items.Clear();
+                lvPagamentos.Items.Clear();
+            }
         }
+
+
+        // Em PROJETO.views.compraevenda.ComprasFrmCadastro
+
+        public void PreencherListViewHistorico(List<ContasPagar> contasPagar)
+        {
+            lvParcelas.Items.Clear();
+            lvPagamentos.Items.Clear();
+
+            // Variáveis para cálculo
+            Compra compraAtual = this.aCompra;
+            decimal valorTotalNota = compraAtual.ValorTotal;
+            DateTime dataEmissao = compraAtual.DataEmissao.Date;
+
+            var contasPagarOrdenadas = contasPagar.OrderBy(c => c.NumParcela).ToList();
+            decimal somaPorcentagensArredondadas = 0m;
+            int totalParcelas = contasPagarOrdenadas.Count;
+
+            // Lista temporária para armazenar os cálculos (Tuples)
+            var dadosParcelasCalculados = new List<(ContasPagar Conta, int Dias, decimal PorcentagemArredondada)>();
+
+            // ----------------------------------------------------------------------
+            // FASE 1: CÁLCULO BRUTO E ARREDONDAMENTO PADRÃO DE TODAS AS PARCELAS
+            // ----------------------------------------------------------------------
+            foreach (var conta in contasPagarOrdenadas)
+            {
+                // 1. Cálculo dos Dias Totais Históricos
+                TimeSpan diferenca = conta.DataVencimento.Date - dataEmissao;
+                int diasTotais = (int)Math.Round(diferenca.TotalDays);
+
+                // 2. Cálculo da Porcentagem Bruta (alta precisão)
+                decimal porcentagemBruta = 0m;
+                if (valorTotalNota > 0)
+                {
+                    porcentagemBruta = (conta.Valor / valorTotalNota) * 100m;
+                }
+
+                // 3. Arredondamento Padrão para 2 casas
+                decimal porcentagemArredondada = Math.Round(porcentagemBruta, 2, MidpointRounding.AwayFromZero);
+
+                somaPorcentagensArredondadas += porcentagemArredondada;
+
+                // Armazena o resultado
+                dadosParcelasCalculados.Add((conta, diasTotais, porcentagemArredondada));
+            }
+
+            // ----------------------------------------------------------------------
+            // FASE 2: AJUSTE DA ÚLTIMA PARCELA PARA GARANTIR 100% (CORRIGIDO ERRO DE COMPILAÇÃO)
+            // ----------------------------------------------------------------------
+
+            if (totalParcelas > 0)
+            {
+                // Calcula a diferença que falta ou que excede 100%
+                decimal diferencaAjuste = 100m - somaPorcentagensArredondadas;
+
+                // Posição do último item
+                int indiceUltimaParcela = totalParcelas - 1;
+
+                // 1. COPIA O ITEM para uma variável local
+                var ultimaParcela = dadosParcelasCalculados[indiceUltimaParcela];
+
+                // 2. MODIFICA o campo desejado na variável local
+                ultimaParcela.PorcentagemArredondada += diferencaAjuste;
+
+                // 3. ATRIBUI o item MODIFICADO de volta para a lista (Fix para o erro de Tuple)
+                dadosParcelasCalculados[indiceUltimaParcela] = ultimaParcela;
+            }
+
+            // ----------------------------------------------------------------------
+            // FASE 3: PREENCHIMENTO DOS LISTVIEWS
+            // ----------------------------------------------------------------------
+
+            foreach (var dado in dadosParcelasCalculados)
+            {
+                var conta = dado.Conta;
+                int diasTotais = dado.Dias;
+                decimal porcentagemAjustada = dado.PorcentagemArredondada;
+
+                // Convenções para data não preenchida
+                string dataBaixaTexto = (conta.DataBaixa == DateTime.MinValue)
+                                        ? "N/A"
+                                        : conta.DataBaixa.ToShortDateString();
+
+                // --- 1. PREENCHIMENTO DO lvParcelas (Exibição da Condição Histórica) ---
+                ListViewItem itemParcela = new ListViewItem(conta.NumParcela.ToString());
+
+                itemParcela.SubItems.Add(diasTotais.ToString());
+                itemParcela.SubItems.Add(conta.FormaPagamento.ID.ToString());
+                itemParcela.SubItems.Add(conta.FormaPagamento.Forma);
+
+                // Porcentagem: Valor ajustado, Formatado para 2 casas
+                itemParcela.SubItems.Add(porcentagemAjustada.ToString("F2"));
+
+                // Valor: Formatado para 2 casas
+                itemParcela.SubItems.Add(conta.Valor.ToString("F2"));
+
+                lvParcelas.Items.Add(itemParcela);
+
+                // --- 2. PREENCHIMENTO DO lvPagamentos (Detalhes da Conta a Pagar Histórica) ---
+                ListViewItem itemPagamento = new ListViewItem(conta.ModeloNFC.ToString());
+                itemPagamento.SubItems.Add(conta.SerieNFC.ToString());
+                itemPagamento.SubItems.Add(conta.NumNFC.ToString());
+                itemPagamento.SubItems.Add(conta.NumParcela.ToString());
+                itemPagamento.SubItems.Add(conta.Fornecedor.ID.ToString());
+                itemPagamento.SubItems.Add(compraAtual.Fornecedor.NomeFantasia);
+                itemPagamento.SubItems.Add(conta.FormaPagamento.Forma);
+                itemPagamento.SubItems.Add(compraAtual.DataEmissao.ToShortDateString());
+
+                // Vencimento HISTÓRICO
+                itemPagamento.SubItems.Add(conta.DataVencimento.ToShortDateString());
+
+                itemPagamento.SubItems.Add(conta.Valor.ToString("F2"));
+
+                itemPagamento.SubItems.Add(dataBaixaTexto);
+                itemPagamento.SubItems.Add(dataBaixaTexto);
+                itemPagamento.SubItems.Add(conta.Taxa.ToString("F2"));
+                itemPagamento.SubItems.Add(conta.Multa.ToString("F2"));
+                itemPagamento.SubItems.Add(conta.Desconto.ToString("F2"));
+                itemPagamento.SubItems.Add(conta.Situacao);
+
+                lvPagamentos.Items.Add(itemPagamento);
+            }
+        }
+
         private void PreencherListView(IEnumerable<Parcela> dados)
         {
             lvParcelas.Items.Clear();

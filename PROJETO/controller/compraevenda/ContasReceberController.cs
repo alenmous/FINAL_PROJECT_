@@ -28,6 +28,7 @@ namespace PROJETO.controller.compraevenda
         {
             return ContasReceberDAO.Quitar(contaReceber);
         }
+        // Exemplo de um método que deve existir no seu ContasReceberController.cs
 
         public bool CancelarParcela(ContasReceber contaReceber)
         {
@@ -49,6 +50,10 @@ namespace PROJETO.controller.compraevenda
         public List<ContasReceber> ListarContasReceberComData(string status, DateTime DataInicio, DateTime DataFim, string TipoData)
         {
             return ContasReceberDAO.ListarContasReceberComData(status, DataInicio, DataFim, TipoData);
+        }
+        public List<ContasReceber> ListarContasPorNota(int numNFC, int modeloNFC, int serieNFC, int idCliente)
+        {
+            return ContasReceberDAO.ListarContasAReceberPorNumero(numNFC, modeloNFC, serieNFC, idCliente);
         }
         private string alterStatus(string status)
         {

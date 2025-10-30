@@ -42,6 +42,7 @@ namespace PROJETO.controller.compraevenda
             }
         }
 
+
         public List<Venda> BuscarListaVendaPorChave(int numNF, int modeloNF, int serieNF)
         {
             return vendasDAO.BuscarListaVendasPorChave(numNF, modeloNF, serieNF);

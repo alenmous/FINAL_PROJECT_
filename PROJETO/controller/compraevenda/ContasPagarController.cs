@@ -63,6 +63,12 @@ namespace PROJETO.controller.compraevenda
             }
             return "OK";
         }
+        public List<ContasPagar> ListarContasPorNota(int numNFC, int modeloNFC, int serieNFC, int numFornecedor)
+        {
+            // Presumimos que ListarContasAPagarPorNumero (no DAO) busca TODAS as parcelas
+            // com base apenas nos dados da nota (NFC, modelo, serie, fornecedor).
+            return contasPagarDAO.ListarContasAPagarPorNumero(numNFC, modeloNFC, serieNFC, numFornecedor);
+        }
         public List<ContasPagar> VerificarListaContasAPagar(int numNFC, int modeloNFC, int serieNFC, int numFornecedor)
         {
             // Chama o método DAL para listar as contas a pagar com base nos parâmetros fornecidos

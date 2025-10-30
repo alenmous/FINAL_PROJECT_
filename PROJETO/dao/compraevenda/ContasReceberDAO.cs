@@ -155,14 +155,14 @@ namespace PROJETO.dao.compraevenda
             try
             {
                 string sql = "SELECT * FROM tb_contas_receber " +
-                             "WHERE num_nfv = @NumNFv AND modelo_nfv = @ModeloNFv " +
-                             "AND serie_nfv = @SerieNFv AND id_cliente = @NumCliente";
+                             "WHERE num_nfc = @NumNFc AND modelo_nfc = @ModeloNFc " +
+                             "AND serie_nfc = @SerieNFc AND id_cliente = @NumCliente";
 
                 SqlParameter[] parametros =
                 {
-                    new SqlParameter("@NumNFv", numNFC),
-                    new SqlParameter("@ModeloNFv", modeloNFC),
-                    new SqlParameter("@SerieNFv", serieNFC),
+                    new SqlParameter("@NumNFC", numNFC),
+                    new SqlParameter("@ModeloNFc", modeloNFC),
+                    new SqlParameter("@SerieNFc", serieNFC),
                     new SqlParameter("@NumCliente", numFornecedor)
                 };
 

@@ -43,6 +43,7 @@ namespace PROJETO.views.compraevenda
         DateTime dtCancelamento;
         CondicaoPagamento aCondicao;
         CondicaoPagamentoController condicaoPagamentoController;
+        ContasReceberController contasReceberController;
 
         public VendaFrmCadastro()
         {
@@ -56,6 +57,7 @@ namespace PROJETO.views.compraevenda
             vendasController = new VendasController();
             clientesController = new ClientesController();
             condicaoPagamentoController = new CondicaoPagamentoController();
+            contasReceberController = new ContasReceberController();
             aCondicao = new CondicaoPagamento();
 
         }
@@ -186,9 +188,99 @@ namespace PROJETO.views.compraevenda
             PreencherListView(dados);
         }
 
-        // ####################################################################
-        // MÉTODO PreencherListView CORRIGIDO
-        // ####################################################################
+        // Em PROJETO.views.compraevenda.VendaFrmCadastro
+        // (Este método deve ser adicionado ao final da sua classe)
+
+        public void PreencherListViewHistorico(List<ContasReceber> contasReceber)
+        {
+            lvParcelas.Items.Clear();
+
+            // Variáveis para cálculo
+            Venda vendaAtual = this.aVenda;
+            decimal valorTotalNota = vendaAtual.ValorTotal;
+            DateTime dataEmissao = vendaAtual.DataEmissao.Date;
+
+            var contasReceberOrdenadas = contasReceber.OrderBy(c => c.NumParcela).ToList();
+            decimal somaPorcentagensArredondadas = 0m;
+            int totalParcelas = contasReceberOrdenadas.Count;
+
+            // Lista temporária para armazenar os cálculos (Tuples)
+            var dadosParcelasCalculados = new List<(ContasReceber Conta, int Dias, decimal PorcentagemArredondada)>();
+
+            // ----------------------------------------------------------------------
+            // FASE 1: CÁLCULO BRUTO E ARREDONDAMENTO PADRÃO DE TODAS AS PARCELAS
+            // ----------------------------------------------------------------------
+            foreach (var conta in contasReceberOrdenadas)
+            {
+                // 1. Cálculo dos Dias Totais Históricos
+                TimeSpan diferenca = conta.DataVencimento.Date - dataEmissao;
+                int diasTotais = (int)Math.Round(diferenca.TotalDays);
+
+                // 2. Cálculo da Porcentagem Bruta (alta precisão)
+                decimal porcentagemBruta = 0m;
+                if (valorTotalNota > 0)
+                {
+                    porcentagemBruta = (conta.Valor / valorTotalNota) * 100m;
+                }
+
+                // 3. Arredondamento Padrão para 2 casas
+                decimal porcentagemArredondada = Math.Round(porcentagemBruta, 2, MidpointRounding.AwayFromZero);
+
+                somaPorcentagensArredondadas += porcentagemArredondada;
+
+                // Armazena o resultado
+                dadosParcelasCalculados.Add((conta, diasTotais, porcentagemArredondada));
+            }
+
+            // ----------------------------------------------------------------------
+            // FASE 2: AJUSTE DA ÚLTIMA PARCELA PARA GARANTIR 100% (CORRIGIDO ERRO DE COMPILAÇÃO)
+            // ----------------------------------------------------------------------
+
+            if (totalParcelas > 0)
+            {
+                // Calcula a diferença que falta ou que excede 100%
+                decimal diferencaAjuste = 100m - somaPorcentagensArredondadas;
+
+                int indiceUltimaParcela = totalParcelas - 1;
+
+                // Fix para o erro de Tuple: Copiar, Modificar, Atribuir de volta
+                var ultimaParcela = dadosParcelasCalculados[indiceUltimaParcela];
+                ultimaParcela.PorcentagemArredondada += diferencaAjuste;
+                dadosParcelasCalculados[indiceUltimaParcela] = ultimaParcela;
+            }
+
+            // ----------------------------------------------------------------------
+            // FASE 3: PREENCHIMENTO DO LISTVIEW (lvParcelas)
+            // ----------------------------------------------------------------------
+
+            foreach (var dado in dadosParcelasCalculados)
+            {
+                var conta = dado.Conta;
+                int diasTotais = dado.Dias;
+                decimal porcentagemAjustada = dado.PorcentagemArredondada;
+
+                // Note: ContasReceber usa DataBaixa para o status de pagamento
+                string dataBaixaTexto = (conta.DataBaixa == DateTime.MinValue)
+                                        ? "N/A"
+                                        : conta.DataBaixa.ToShortDateString();
+
+                // --- PREENCHIMENTO DO lvParcelas (Histórico) ---
+                ListViewItem itemParcela = new ListViewItem(conta.NumParcela.ToString());
+
+                itemParcela.SubItems.Add(diasTotais.ToString());
+                itemParcela.SubItems.Add(conta.FormaPagamento.ID.ToString());
+                itemParcela.SubItems.Add(conta.FormaPagamento.Forma);
+
+                // Porcentagem: Valor ajustado, Formatado para 2 casas
+                itemParcela.SubItems.Add(porcentagemAjustada.ToString("F2"));
+
+                // Valor: Formatado para 2 casas
+                itemParcela.SubItems.Add(conta.Valor.ToString("F2"));
+
+                lvParcelas.Items.Add(itemParcela);
+            }
+        }
+
         private void PreencherListView(IEnumerable<Parcela> dados)
         {
             lvParcelas.Items.Clear();
@@ -242,10 +334,18 @@ namespace PROJETO.views.compraevenda
                 lvParcelas.Items.Add(item);
             }
         }
+        // Em PROJETO.views.compraevenda.VendaFrmCadastro
+
+        // Em PROJETO.views.compraevenda.VendaFrmCadastro
+
         public virtual void Popular(Venda aVenda)
         {
+            this.aVenda = aVenda; // Armazena a referência
+
             // Formata os valores de preço para exibição correta
             CultureInfo cultura = CultureInfo.InvariantCulture;
+
+            // População de Cabeçalho
             NumNFe = aVenda.NumNfv;
             ModeloNFe = aVenda.ModeloNfv;
             SerieNFe = aVenda.SerieNfv;
@@ -253,36 +353,47 @@ namespace PROJETO.views.compraevenda
             txtCliente.Text = aVenda.Cliente.Nome;
             dtCriacao = aVenda.DataCriacao;
             dtEmissao = aVenda.DataEmissao;
+
+            // Popula a Condição de Pagamento HISTÓRICA
+            txtCodCondicao.Text = aVenda.CondicaoPagamento.ID.ToString();
+            txtCondicao.Text = aVenda.CondicaoPagamento.Condicao;
+
             txtFrete.Text = aVenda.ValorFrete.ToString("0.##", cultura);
             txtSeguro.Text = aVenda.ValorSeguro.ToString("0.##", cultura);
             txtOutras.Text = aVenda.ValorOutrasDespesas.ToString("0.##", cultura);
             txtTotalNota.Text = aVenda.ValorTotal.ToString("0.##", cultura);
-            txtCodCondicao.Text = aVenda.CondicaoPagamento.ID.ToString();
-            txtCondicao.Text = aVenda.CondicaoPagamento.Condicao;
-            string documento = "";
+
+            // Popula o documento do cliente (CPF/CNPJ)
             oCliente = aVenda.Cliente;
-            if (oCliente.TipoCliente == "F")
-                if (oCliente.CPF != null)
-                    documento = oCliente.CPF.ToString();
-                else
-                    documento = oCliente.RG.ToString();
-            else if (oCliente.TipoCliente == "J")
-                documento = oCliente.CPF.ToString();
-
-
+            string documento = string.IsNullOrWhiteSpace(oCliente.CPF) ? oCliente.RG : oCliente.CPF;
             txtCPFeCNPJ.Text = Operacao.FormatarDocumento(documento);
 
+            // Chaves da Venda
             int codigo = Convert.ToInt32(NumNFe);
             int modelo = Convert.ToInt32(ModeloNFe);
             int serie = Convert.ToInt32(SerieNFe);
-            int cliente = Convert.ToInt32(txtCodCliente.Text);
 
+            // Obter o ID do Cliente (já está no objeto aVenda)
+            int clienteID = aVenda.Cliente.ID; // ou Convert.ToInt32(txtCodCliente.Text)
+
+            // Carrega Itens da Venda
             ItensVendaController aCTLItensVenda = new ItensVendaController();
+            // A chamada do ItemVenda.BuscarItensVendaPorChave2 está incompleta na sua modelagem, 
+            // mas vamos focar na ContasReceber por enquanto.
             List<ItemVenda> ItemVenda = aCTLItensVenda.BuscarItensVendaPorChave2(codigo, modelo, serie);
-
             PopularItens(ItemVenda);
-            CarregaLV();
+
+            // --- CORREÇÃO AQUI: PASSAR O ID DO CLIENTE ---
+
+            // Buscar todas as Contas a Receber desta nota
+            List<ContasReceber> contasReceberHistoricas = contasReceberController.ListarContasPorNota(codigo, modelo, serie, clienteID);
+
+            // Chamar o novo método de preenchimento com cálculo ajustado
+            PreencherListViewHistorico(contasReceberHistoricas);
+
+            // O CarregaLV() original foi removido/substituído aqui.
         }
+
         public void PopularItens(List<ItemVenda> List)
         {
             if (List == null)
@@ -322,11 +433,11 @@ namespace PROJETO.views.compraevenda
                         List<ContasReceber> listaContasReceber = new List<ContasReceber>();
                         venda.CondicaoPagamento = new CondicaoPagamento();
                         venda.Cliente.ID = Convert.ToInt32(txtCodCliente.Text);
-                        venda.CondicaoPagamento.ID = oCliente.CondicaoPagamento.ID;
+                        venda.CondicaoPagamento.ID = Convert.ToInt32(txtCodCondicao.Text);
                         venda.NumNfv = NumNFe;
                         venda.ModeloNfv = ModeloNFe;
                         venda.SerieNfv = SerieNFe;
-
+                       
                         // CORREÇÃO: Usar ParseDecimalText para ler os valores da tela
                         venda.ValorTotal = ParseDecimalText(txtTotalNota.Text);
                         venda.ValorFrete = ParseDecimalText(txtFrete.Text);

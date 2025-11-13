@@ -21,7 +21,12 @@ namespace PROJETO.views.compraevenda
             InitializeComponent();
             contasReceberController = new ContasReceberController();
             Operacao.DisableCopyPaste(this);
+            listView1.Columns[0].Text = "Numero";
+
         }
+
+            
+
         public override void ConhecaObj(object obj)
         {
             aContaReceber = (ContasReceber)obj;
@@ -116,26 +121,6 @@ namespace PROJETO.views.compraevenda
 
         private void PreencherListView(IEnumerable<ContasReceber> dados)
         {
-            listView1.Columns.Clear();
-            listView1.Items.Clear();
-
-            listView1.Columns.Add("Número");
-            listView1.Columns.Add("Modelo");
-            listView1.Columns.Add("Série");
-            listView1.Columns.Add("Parcela");
-            listView1.Columns.Add("ID Cliente");
-            listView1.Columns.Add("Nome Cliente");
-            listView1.Columns.Add("Forma de Pagamento");
-            listView1.Columns.Add("Data de Criação");
-            listView1.Columns.Add("Data de Vencimento");
-            listView1.Columns.Add("Valor");
-            listView1.Columns.Add("Data de Baixa");
-            listView1.Columns.Add("Pagamento");
-            listView1.Columns.Add("Taxa");
-            listView1.Columns.Add("Multa");
-            listView1.Columns.Add("Desconto");
-            listView1.Columns.Add("Situação");
-
             foreach (var conta in dados)
             {
                 ListViewItem item = new ListViewItem(Convert.ToString(conta.NumNFC));
@@ -145,14 +130,32 @@ namespace PROJETO.views.compraevenda
                 item.SubItems.Add(conta.Cliente.ID.ToString());
                 item.SubItems.Add(conta.Cliente.Nome);
                 item.SubItems.Add(conta.FormaPagamento.Forma);
-                item.SubItems.Add(conta.DataCriacao.ToString());
-                item.SubItems.Add(conta.DataVencimento.ToString());
-                item.SubItems.Add(conta.Valor.ToString());
-                item.SubItems.Add(conta.DataBaixa.ToString());
-                item.SubItems.Add(conta.Pagamento.ToString());
-                item.SubItems.Add(conta.Taxa.ToString());
-                item.SubItems.Add(conta.Multa.ToString());
-                item.SubItems.Add(conta.Desconto.ToString());
+
+                // --- MUDANÇA 1: Emissão e Vencimento (Apenas Data) ---
+                // O formato "dd/MM/yyyy" remove a hora.
+                item.SubItems.Add(conta.DataCriacao.ToString("dd/MM/yyyy"));
+                item.SubItems.Add(conta.DataVencimento.ToString("dd/MM/yyyy"));
+
+                // Formatação de valores (Mantendo o 0.00 como no ajuste anterior)
+                item.SubItems.Add(conta.Valor.ToString("0.00"));
+
+                // --- MUDANÇA 2: Data da Baixa (Data e Hora SE PAGO, N/A se não pago) ---
+                // Se Pagamento for nulo (decimal?) ou 0, exibe "N/A".
+                // Caso contrário, exibe a data e hora completa.
+                string dataBaixaFormatada = (conta.Pagamento == null || conta.Pagamento == 0)
+                                            ? "N/A"
+                                            : conta.DataBaixa.ToString("dd/MM/yyyy HH:mm:ss");
+                item.SubItems.Add(dataBaixaFormatada);
+
+                // Adiciona o valor do Pagamento
+                // ATENÇÃO: Se conta.Pagamento for 'decimal' (não-nulo), remova GetValueOrDefault(0).
+                item.SubItems.Add(conta.Pagamento.ToString("0.00"));
+
+                // Demais campos formatados
+                item.SubItems.Add(conta.Taxa.ToString("0.00"));
+                item.SubItems.Add(conta.Multa.ToString("0.00"));
+                item.SubItems.Add(conta.Desconto.ToString("0.00"));
+
                 item.SubItems.Add(conta.Situacao.ToString());
                 item.Tag = conta;
                 listView1.Items.Add(item);

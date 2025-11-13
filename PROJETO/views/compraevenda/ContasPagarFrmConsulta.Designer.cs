@@ -107,7 +107,7 @@
             // 
             // NParcela
             // 
-            this.NParcela.Text = "Nº";
+            this.NParcela.Text = "Nº Parc.";
             // 
             // IDForn
             // 
@@ -126,16 +126,17 @@
             // Emissão
             // 
             this.Emissão.Text = "Emissão";
-            this.Emissão.Width = 130;
+            this.Emissão.Width = 100;
             // 
             // Vencimento
             // 
             this.Vencimento.Text = "Vencimento";
-            this.Vencimento.Width = 130;
+            this.Vencimento.Width = 100;
             // 
             // Valor
             // 
             this.Valor.Text = "Valor";
+            this.Valor.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
             this.Valor.Width = 100;
             // 
             // Baixa
@@ -146,19 +147,23 @@
             // Pagamento
             // 
             this.Pagamento.Text = "Pagamento";
+            this.Pagamento.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
             this.Pagamento.Width = 100;
             // 
             // Juros
             // 
             this.Juros.Text = "Juros";
+            this.Juros.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
             // 
             // Multa
             // 
             this.Multa.Text = "Multa";
+            this.Multa.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
             // 
             // Desconto
             // 
             this.Desconto.Text = "Desconto";
+            this.Desconto.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
             // 
             // Situação
             // 
@@ -214,23 +219,22 @@
         }
 
         #endregion
-
-        private System.Windows.Forms.ColumnHeader Modelo;
-        private System.Windows.Forms.ColumnHeader Série;
-        private System.Windows.Forms.ColumnHeader NParcela;
-        private System.Windows.Forms.ColumnHeader IDForn;
-        private System.Windows.Forms.ColumnHeader Fornecedor;
-        private System.Windows.Forms.ColumnHeader FormaPG;
-        private System.Windows.Forms.ColumnHeader Emissão;
-        private System.Windows.Forms.ColumnHeader Vencimento;
-        private System.Windows.Forms.ColumnHeader Valor;
-        private System.Windows.Forms.ColumnHeader Baixa;
-        private System.Windows.Forms.ColumnHeader Pagamento;
-        private System.Windows.Forms.ColumnHeader Juros;
-        private System.Windows.Forms.ColumnHeader Multa;
-        private System.Windows.Forms.ColumnHeader Desconto;
-        private System.Windows.Forms.ColumnHeader Situação;
         protected System.Windows.Forms.RadioButton rbPago;
         protected System.Windows.Forms.RadioButton rbTodos;
+        protected System.Windows.Forms.ColumnHeader Modelo;
+        protected System.Windows.Forms.ColumnHeader Série;
+        protected System.Windows.Forms.ColumnHeader NParcela;
+        protected System.Windows.Forms.ColumnHeader IDForn;
+        protected System.Windows.Forms.ColumnHeader Fornecedor;
+        protected System.Windows.Forms.ColumnHeader FormaPG;
+        protected System.Windows.Forms.ColumnHeader Emissão;
+        protected System.Windows.Forms.ColumnHeader Vencimento;
+        protected System.Windows.Forms.ColumnHeader Valor;
+        protected System.Windows.Forms.ColumnHeader Baixa;
+        protected System.Windows.Forms.ColumnHeader Pagamento;
+        protected System.Windows.Forms.ColumnHeader Juros;
+        protected System.Windows.Forms.ColumnHeader Multa;
+        protected System.Windows.Forms.ColumnHeader Desconto;
+        protected System.Windows.Forms.ColumnHeader Situação;
     }
 }

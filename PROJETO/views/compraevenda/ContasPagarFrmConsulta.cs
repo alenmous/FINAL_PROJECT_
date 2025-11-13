@@ -28,6 +28,7 @@ namespace PROJETO.views.compraevenda
             InitializeComponent();
             contasPagarController = new ContasPagarController();
             Operacao.DisableCopyPaste(this);
+            listView1.Columns[0].Text = "Numero";
         }
         public override void ConhecaObj(object obj)
         {
@@ -143,20 +144,22 @@ namespace PROJETO.views.compraevenda
                 item.SubItems.Add(conta.Fornecedor.ID.ToString());
                 item.SubItems.Add(conta.Fornecedor.NomeFantasia);
                 item.SubItems.Add(conta.FormaPagamento.Forma);
-                item.SubItems.Add(conta.DataCriacao.ToString());
-                item.SubItems.Add(conta.DataVencimento.ToString());
-                item.SubItems.Add(conta.Valor.ToString());
-                item.SubItems.Add(conta.DataBaixa.ToString());
-                item.SubItems.Add(conta.Pagamento.ToString());
-                item.SubItems.Add(conta.Taxa.ToString());
-                item.SubItems.Add(conta.Multa.ToString());
-                item.SubItems.Add(conta.Desconto.ToString());
+                item.SubItems.Add(conta.DataCriacao.ToString("dd/MM/yyyy"));
+                item.SubItems.Add(conta.DataVencimento.ToString("dd/MM/yyyy"));
+                item.SubItems.Add(conta.Valor.ToString("0.00"));
+                string dataBaixaFormatada = (conta.Pagamento == null || conta.Pagamento == 0)
+                                            ? "N/A"
+                                            : conta.DataBaixa.ToString("dd/MM/yyyy HH:mm:ss");
+                item.SubItems.Add(dataBaixaFormatada);
+                item.SubItems.Add(conta.Pagamento.ToString("0.00"));
+                item.SubItems.Add(conta.Taxa.ToString("0.00"));
+                item.SubItems.Add(conta.Multa.ToString("0.00"));
+                item.SubItems.Add(conta.Desconto.ToString("0.00"));
                 item.SubItems.Add(conta.Situacao.ToString());
                 item.Tag = conta;
                 listView1.Items.Add(item);
             }
         }
-
         private int ObterIdSelecionado(int posicao)
         {
             if (listView1.SelectedItems.Count > 0)

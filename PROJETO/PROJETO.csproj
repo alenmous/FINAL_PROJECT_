@@ -440,6 +440,9 @@
     <EmbeddedResource Include="views\compraevenda\ContasPagarFrmConsulta.resx">
       <DependentUpon>ContasPagarFrmConsulta.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="views\compraevenda\ContasReceberFrmCadastro.resx">
+      <DependentUpon>ContasReceberFrmCadastro.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="views\compraevenda\ContasReceberFrmConsulta.resx">
       <DependentUpon>ContasReceberFrmConsulta.cs</DependentUpon>
     </EmbeddedResource>

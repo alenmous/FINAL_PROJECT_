@@ -135,6 +135,7 @@ namespace PROJETO.controller.compraevenda
                 frm.ConhecaObj(contaPagar);
                 frm.Text = "Contas a Pagar";
                 frm.CarregarCampos();
+                
                 frm.ShowDialog();
             }
 

@@ -123,6 +123,7 @@ namespace PROJETO.views.compraevenda
             txtTotalPago.Text = aConta.Pagamento.ToString("0.00", cultura);
             if (txtStatus.Text == "PAGO")
                 BloquearCampos();
+
         }
 
         protected bool VerificarCamposVazios()
@@ -204,9 +205,6 @@ namespace PROJETO.views.compraevenda
             return true;
         }
 
-
-
-
         protected override void Salvar()
         {
             if (VerificarCamposVazios())
@@ -247,5 +245,116 @@ namespace PROJETO.views.compraevenda
             }
         }
 
+        private decimal ParseDecimalInput(string input)
+        {
+            if (string.IsNullOrWhiteSpace(input))
+                return 0m;
+
+            string s = input.Replace("R$", "").Trim();
+            bool hasDot = s.Contains(".");
+            bool hasComma = s.Contains(",");
+
+            if (hasDot && hasComma)
+            {
+                s = s.Replace(".", "").Replace(",", ".");
+            }
+            else if (hasComma && !hasDot)
+            {
+                s = s.Replace(",", ".");
+            }
+
+            if (decimal.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal v))
+                return v;
+
+            // fallback para cultura corrente
+            if (decimal.TryParse(input, NumberStyles.Any, CultureInfo.CurrentCulture, out v))
+                return v;
+
+            return 0m;
+        }
+
+        private protected void btnCalcular_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                // Ler valores com parser robusto
+                decimal valorParcela = ParseDecimalInput(txtValorParcela.Text);
+
+                // --- ALTERAÇÃO 1: Tratar desconto e multa como VALOR FIXO ---
+                decimal descontoValorFixo = ParseDecimalInput(txtDesconto.Text); // tratado como VALOR FIXO (R$)
+                decimal multaValorFixo = ParseDecimalInput(txtMulta.Text);       // tratado como VALOR FIXO (R$)
+
+                // A taxa continua como percentual
+                decimal taxaPercent = ParseDecimalInput(txtTaxa.Text);         // tratado como % ao dia
+
+                DateTime dataVenc = dtVencimento.Value.Date;
+                DateTime dataBaixa = dtBaixa.Value.Date;
+
+                decimal total = valorParcela;
+                string detalhe = "";
+
+                if (valorParcela <= 0)
+                {
+                    MessageBox.Show("Valor da parcela inválido para cálculo.", "Erro", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+
+                if (dataBaixa <= dataVenc)
+                {
+                    // --- ALTERAÇÃO 2: Aplicar desconto de VALOR FIXO ---
+                    if (descontoValorFixo > 0)
+                    {
+                        // Subtrai o valor fixo do desconto
+                        total = valorParcela - descontoValorFixo;
+
+                        // Opcional: garantir que o total não fique negativo
+                        if (total < 0) total = 0;
+
+                        detalhe = $"Desconto (valor fixo) aplicado: R$ {descontoValorFixo.ToString("0.00", cultura)}";
+                    }
+                    else
+                    {
+                        detalhe = "Sem desconto aplicado.";
+                        total = valorParcela; // Total é o valor da parcela sem desconto
+                    }
+                }
+                else
+                {
+                    // Após o vencimento: aplicar multa (fixa) e taxa (juros por dia)
+                    int diasAtraso = (dataBaixa - dataVenc).Days;
+
+                    // --- ALTERAÇÃO 3: Usar o VALOR FIXO da multa ---
+                    // O valor da multa é simplesmente o valor lido do textbox
+                    decimal multaValor = (multaValorFixo > 0) ? multaValorFixo : 0m;
+
+                    decimal taxaValor = 0m; // Juros
+
+                    if (taxaPercent > 0 && diasAtraso > 0)
+                    {
+                        // Cálculo da taxa (juros) continua baseado em percentual
+                        taxaValor = ((taxaPercent / 100m) * diasAtraso) * valorParcela;
+                    }
+
+                    total = valorParcela + multaValor + taxaValor;
+                    detalhe = $"Dias atraso: {diasAtraso}; Multa (valor fixo): R$ {multaValor.ToString("0.00", cultura)}; Juros: R$ {taxaValor.ToString("0.00", cultura)}";
+                }
+
+                // Arredondar e mostrar no campo
+                total = Math.Round(total, 2);
+                txtTotalPago.Text = total.ToString("0.00", cultura);
+
+                // Mostrar resumo opcional (ajustei o texto da parcela)
+                MessageBox.Show($"Cálculo concluído.\nParcela: R$ {valorParcela.ToString("0.00", cultura)}\n{detalhe}\nTotal a pagar: R$ {total.ToString("0.00", cultura)}",
+                                      "Resultado do Cálculo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Erro ao calcular. Verifique os valores: " + ex.Message, "Erro", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+
+
     }
+
 }

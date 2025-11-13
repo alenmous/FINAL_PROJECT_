@@ -58,6 +58,7 @@ namespace PROJETO.views.compraevenda
             txtTotalPago.Text = aConta.Pagamento.ToString("0.00", cultura);
             if (txtStatus.Text == "PAGO")
                 BloquearCampos();
+            txtTotalPago.Text = "";
         }
         protected override void Salvar()
         {

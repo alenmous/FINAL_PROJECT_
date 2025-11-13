@@ -38,19 +38,6 @@
             // 
             this.rbTodos.CheckedChanged += new System.EventHandler(this.rbTodos_CheckedChanged);
             // 
-            // btnExcluir
-            // 
-            this.btnExcluir.Location = new System.Drawing.Point(627, 515);
-            this.btnExcluir.Visible = false;
-            // 
-            // btnAlterar
-            // 
-            this.btnAlterar.Location = new System.Drawing.Point(843, 513);
-            // 
-            // btnIncluir
-            // 
-            this.btnIncluir.Location = new System.Drawing.Point(735, 513);
-            // 
             // rbAtivos
             // 
             this.rbAtivos.Location = new System.Drawing.Point(553, 26);

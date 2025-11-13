@@ -28,7 +28,21 @@
         /// </summary>
         private void InitializeComponent()
         {
-            this.components = new System.ComponentModel.Container();
+            this.SuspendLayout();
+            // 
+            // lblCodigo
+            // 
+            this.lblCodigo.Size = new System.Drawing.Size(57, 17);
+            this.lblCodigo.Text = "Nº Nota";
+            // 
+            // ContasReceberFrmCadastro
+            // 
+            this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
+            this.ClientSize = new System.Drawing.Size(836, 252);
+            this.Name = "ContasReceberFrmCadastro";
+            this.ResumeLayout(false);
+            this.PerformLayout();
+
         }
 
         #endregion

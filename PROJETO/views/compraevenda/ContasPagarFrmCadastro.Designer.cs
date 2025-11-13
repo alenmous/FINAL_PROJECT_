@@ -62,6 +62,7 @@
             this.txtMulta = new System.Windows.Forms.TextBox();
             this.txtCodForn = new System.Windows.Forms.TextBox();
             this.txtFornecedor = new System.Windows.Forms.TextBox();
+            this.btnCalcular = new System.Windows.Forms.Button();
             this.SuspendLayout();
             // 
             // btnSalvar
@@ -78,6 +79,8 @@
             // 
             this.lblCodigo.Anchor = System.Windows.Forms.AnchorStyles.None;
             this.lblCodigo.Location = new System.Drawing.Point(12, 49);
+            this.lblCodigo.Size = new System.Drawing.Size(55, 17);
+            this.lblCodigo.Text = "nº Nota";
             // 
             // btnSair
             // 
@@ -498,10 +501,21 @@
             this.txtFornecedor.Size = new System.Drawing.Size(281, 27);
             this.txtFornecedor.TabIndex = 1608;
             // 
+            // btnCalcular
+            // 
+            this.btnCalcular.Location = new System.Drawing.Point(693, 208);
+            this.btnCalcular.Name = "btnCalcular";
+            this.btnCalcular.Size = new System.Drawing.Size(131, 34);
+            this.btnCalcular.TabIndex = 1638;
+            this.btnCalcular.Text = "Calcular";
+            this.btnCalcular.UseVisualStyleBackColor = true;
+            this.btnCalcular.Click += new System.EventHandler(this.btnCalcular_Click);
+            // 
             // ContasPagarFrmCadastro
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
             this.ClientSize = new System.Drawing.Size(836, 252);
+            this.Controls.Add(this.btnCalcular);
             this.Controls.Add(this.label18);
             this.Controls.Add(this.dtEmissao);
             this.Controls.Add(this.txtTotalPago);
@@ -576,6 +590,7 @@
             this.Controls.SetChildIndex(this.txtTotalPago, 0);
             this.Controls.SetChildIndex(this.dtEmissao, 0);
             this.Controls.SetChildIndex(this.label18, 0);
+            this.Controls.SetChildIndex(this.btnCalcular, 0);
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -617,5 +632,6 @@
         protected System.Windows.Forms.TextBox txtMulta;
         protected System.Windows.Forms.TextBox txtCodForn;
         protected System.Windows.Forms.TextBox txtFornecedor;
+        protected System.Windows.Forms.Button btnCalcular;
     }
 }
